@@ -42,6 +42,7 @@ Cualquiera de los tres roles puede recibir y conmutar tráfico procedente de APs
    - SYSLOG (UDP 514).
    - GRE (protocolo 47).
    - CPSec (UDP 4500).
+   - NTP (UDP 123)
 
 - Entre APs remotos (RAPs) y controladoras, se establecen túneles IPSEC encapsulados en UDP (NAT-T)
 
@@ -54,7 +55,8 @@ Además de estos flujos, las controladoras pueden establecer las siguientes cone
   
   - Gestión:
 
-    - HTTPS (TCP 443, 4343). 443 redirige inmediatamente a 4343 para el acceso a gestión. El puerto 443 se reserva habitualmente para el portal cautivo de usuarios invitados.
+    - HTTP/HTTPS (TCP 80, 443, 4343). 80 redirige a 443, y 443 redirige inmediatamente a 4343 en el caso de acceso a gestión.
+	- HTTP/HTTPS (8080. 8081, 8088 TCP). Usado para portal cautivo.
     - SSH (TCP 22).
     - SNMP (UDP 161).
 
@@ -66,6 +68,11 @@ Además de estos flujos, las controladoras pueden establecer las siguientes cone
 
     - DHCP (local o Relay) (UDP 68).
     - HTTPS (TCP 443, 4343) cuando hay portal cautivo.
+
+  - Otros protocolos de conectividad remota:
+  
+    - L2TP (UDP 1701)
+	- PPTP (TCP 1723)
 
 **Salientes**:
   
@@ -440,10 +447,162 @@ Como siempre, si un parámetro tiene su valor por defecto, no aparece reflejado 
   Cipher Suite Strength                              medium
   SSL/TLS Protocol Config                            tlsv1.1 tlsv1.2
 
-Control de acceso a gestión
----------------------------
+Protocolos de cifrado - conexión RAP
+------------------------------------
 
-Las controladoras no tienen ningún mecanismo específico para limitar el acceso de gestión a sólo un rango determinado de subredes IP. En su lugar, se pueden usar ACLS para denegar el acceso a los puertos siguientes:
+La conexión de APs remotos a las controladoras se realiza a través de IPSEC, utilizando el crypto-map dinámico número *10000* por defecto. Los parámetros de estas conexiones se pueden personalizar para por ejemplo sustituir el grupo Diffie-Hellman 2, vulnerable a ataques de pre-computación [#diffie_hellman_2_vulnerable]_, por otro con un tamaño de clave mayor, como el grupo 14::
+
+  # Configuración de una política IKE con un número de grupo bajo (como el 10),
+  # inferior a 10.000, para que tenga preferencia sobre las políticas por defecto.
+  (config) $# crypto isakmp policy 10
+  (config-isakmp)$# version v2
+  (config-isakmp)$# group 14
+  (config-isakmp)$# authentication RSA-sig
+  (config-isakmp)$# exit
+
+  # Asignación del grupo 14 a PFS.
+  (config) $# crypto dynamic-map default-ikev2-dynamicmap 10000
+  (config-dynamic-map) $# set pfs-group14
+
+Protección del plano de control (rate-limit)
+--------------------------------------------
+
+La función de firewall integrada en las controladoras incluye varios mecanismos para limitar la tasa de tráfico que puede llegar al plano de control, a través de cualquiera de las interfaces, utilizando el comando `firewall cp-bandwidth-contract`_:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Orden
+     - Aplicación
+     - Valor por defecto
+   * - `firewall cp-bandwidth-contract`_ *auth <pps>*
+     - Tasa de tráfico permitida hacia el proceso de autenticación
+     - 976 pps
+   * - `firewall cp-bandwidth-contract`_ *route <pps>*
+     - Tasa permitida de paquetes que requieren generar un ARP.
+     - 976 pps
+   * - `firewall cp-bandwidth-contract`_ *arp-traffic <pps>*
+     - Tasa de tráfico ARP (procesado por el control plane).
+     - 3906 pps
+   * - `firewall cp-bandwidth-contract`_ *vrrp <pps>*
+     - Tase de tráfico VRRP (procesado por el control plane).
+     - 512 pps
+   * - `firewall cp-bandwidth-contract`_ *l2-other <pps>*
+     - Tasa de tráfico de protocolos de nivel 2 (STP, LACP, LLDP...) (procesado por el control plane).
+     - 1953 pps
+   * - `firewall cp-bandwidth-contract`_ *untrusted-ucast <pps>*
+     - Tasa de unicast destinado a la controladora desde VLANs untrusted.
+     - 9765 pps
+   * - `firewall cp-bandwidth-contract`_ *sessmirr <pps>*
+     - Limita el tráfico de la funcionalidad session mirror.
+     - 976 pps
+   * - `firewall cp-bandwidth-contract`_ *trusted-mcast <pps>*
+     - Tasa de multicast destinado a la controladora desde VLANs trusted.
+     - 1953 pps
+   * - `firewall cp-bandwidth-contract`_ *trusted-ucast <pps>*
+     - Tasa de unicast destinado a la controladora desde VLANs trusted.
+     - 65535 pps
+   * - `firewall cp-bandwidth-contract`_ *untrusted-mcast <pps>*
+     - Tasa de multicast destinado a la controladora desde VLANs untrusted.
+     - 1953 pps
+   * - `firewall cp-bandwidth-contract`_ *untrusted-ucast <pps>*
+     - Tasa de unicast destinado a la controladora desde VLANs untrusted.
+     - 9765 pps
+
+Nota: la descripción de interfaces *trusted* y *untrusted* se introduce más adelante en el apartado :ref:`proposito_interfaces`.
+
+También pueden mitigarse varios ataques de flooding habituales (ARP, SYN, ICMP...) con el comando `firewall`_ *attack-rate [arp|cp|grat-arp|ping|session|tcp-syn]*. Ambas configuraciones, rate-limit y protección ante flooding, pueden consultarse con el comando `show firewall`_::
+
+  $# show running-config | include firewall
+  Building Configuration...
+  # ... lineas omitidas
+  firewall attack-rate cp 16384
+  firewall attack-rate grat-arp 50 drop
+  
+
+  # Los parámetros que tienen el valor por defecto no salen
+  # en la configuración. Se pueden consultar explícitamente con "show firewall"
+  $# show firewall
+  
+  Global firewall policies
+  ------------------------
+  Policy                                       Action                                          Rate         Port
+  ------                                       ------                                          ----         ----
+  Monitor ping attack                          Disabled
+  Monitor TCP SYN attack                       Disabled
+  Monitor IP sessions attack                   Disabled
+  Monitor ARP attack                           Disabled
+  Monitor Gratuitous ARP attack                Enabled                                         50/30sec
+  Monitor/police CP attacks                    Enabled                                         16384/30sec
+  Rate limit CP untrusted ucast traffic        Enabled                                         9765 pps
+  Rate limit CP untrusted mcast traffic        Enabled                                         3906 pps
+  Rate limit CP trusted ucast traffic          Enabled                                         65535 pps
+  Rate limit CP trusted mcast traffic          Enabled                                         3906 pps
+  Rate limit CP route traffic                  Enabled                                         976 pps
+  Rate limit CP session mirror traffic         Enabled                                         976 pps
+  Rate limit CP auth process traffic           Enabled                                         976 pps
+  Rate limit CP vrrp traffic                   Enabled                                         512 pps
+  Rate limit CP ARP traffic                    Enabled                                         3906 pps
+  Rate limit CP L2 protocol/other traffic      Enabled                                         1953 pps
+
+Protección del plano de control (ACL)
+-------------------------------------
+
+Además de limitar la tasa de paquetes de distintos protocolos al plano de control, se puede configurar una lista blanca de acceso a diferentes protocolos en función de IP origen, con el comando `firewall cp`_ *[ipv4|ipv6] [permit|deny] [any|<ip> <mascara>] proto [ftp|http|https|icmp|snmp|ssh|telnet|tftp|<numero de protocolo> ports <puerto inicial> - <puerto final>]*.
+
+Por ejemplo, denegar el acceso al servicio NTP de la controladora (UDP 123, número de protocolo IP de UDP: 17), se podría hacer con la regla::
+
+  (config) $# firewall cp
+  (config-fw-cp) $# ipv4 deny any proto 17 ports 123 123
+
+A cada una de las reglas puede asociarse también un contrato de ancho de banda que limite el caudal disponible para ese protocolo y origen de tráfico en particular. Los contratos de ancho de banda se definen con el comando `cp-bandwidth-contract`_ *<nombre> pps <pps>*, y se asocian al protocolo en la regla de `firewall cp`_ descrita anteriormente.
+
+Los contratos de ancho de banda y las reglas configuradas pueden consultarse con los comandos `show cp-bwcontracts`_ y `show firewall-cp`_::
+
+  $# show cp-bwcontracts
+
+  CP bw contracts
+  ---------------
+  Contract                  Id     Rate (packets/second)
+  --------                  --     ---------------------
+  cpbwc-ipv4-syslog         15785  2016
+  cpbwc-ipv6-ike            15799  2016
+  cpbwc-ipv6-file-transfer  15797  8000
+  cpbwc-ipv4-radius-ldap    15788  1024
+  cpbwc-ipv6-dns            15802  128
+  cpbwc-ipv6-dhcp           15803  1024
+
+  $# show firewall-cp
+
+  CP firewall policies
+  --------------------
+  IP Version  Source IP   Source Mask  Protocol  Start Port  End Port  Action          hits  contract
+  ----------  ---------   -----------  --------  ----------  --------  --------------  ----  --------
+  ipv6        any                      17        49170       49200     Permit          0
+  ipv4        any                      17        1900        1900      Permit          0
+  ipv4        any                      17        5999        5999      Permit          0
+
+El comando anterior no muestra todas las reglas aplicadas en la controladora, sino sólo las configuradas explícitamente. La controladora tiene una alrga lista de reglas por defecto que pueden enumerarse con `show firewall-cp`_ *internal*::
+
+  CP firewall policies
+  --------------------
+  IP Version  Source IP  Source Mask  Protocol  Start Port  End Port  Action          hits  contract
+  ----------  ---------  -----------  --------  ----------  --------  --------------  ----  --------
+  ipv4        any                     6         1723        1723      Permit          0
+  ipv4        any                     17        1701        1701      Permit          0
+  ipv4        any                     6         23          23        Deny            0     cpbwc-ipv4-telnet
+  ipv4        any                     6         8084        8084      Deny            0
+  ipv4        any                     6         3306        3306      Deny            0
+  # ... sigue
+
+.. _control_acceso_acl:
+
+Control de acceso por interfaz
+------------------------------
+
+En ocasiones, se quiere realizar un control de acceso a la gestión diferente en función no sólo del origen del tráfico, sino de la interfaz / VLAN por la que llega. Por ejemplo, denegando cualquier tráfico de gestión que venga de una interfaz conectada a Internet, sea cual sea su IP origen.
+
+Para estos casos se pueden usar ACLs de interfaz. Generalmente se limitará el acceso a los puertos siguientes:
 
 - 22 (SSH)
 - 23 (telnet)
@@ -453,7 +612,7 @@ El puerto 443 no se recomienda restringirlo, porque es el que usa el servicio de
 
 **Nomenclatura de servicios**
 
-Típicamente, a cada puerto UDP/TCP se le asigna un nombre de servicio. Los puertos TCP 22 y 23 tienen nombres de servicio predefinidos en las controladoras (*svc-ssh* y *svc-telnet* respectivamente), al puerto 4343 se recomienda asignarle también un nombre descriptivo, como *svc-https-4343*, con el comando `netservice`_::
+Típicamente, a cada puerto UDP/TCP se le asigna un nombre de servicio que se puede usar como un alias en las ACLs. Los puertos TCP 22 y 23 tienen nombres de servicio predefinidos en las controladoras (*svc-ssh* y *svc-telnet* respectivamente), al puerto 4343 se recomienda asignarle también un nombre descriptivo, como *svc-https-4343*, con el comando `netservice`_::
 
   (config)$# netservice <servicio tcp 4343> tcp 4343
 
@@ -504,7 +663,9 @@ Para facilitar la construcción de ACLs, se recomienda agrupar las subredes de g
 
 **ACL para bloque gestión**
 
-El siguiente elemento necesario para limitar el acceso de gestión a las controladoras es la creación de una ACL (`ip access-list session`_). El siguiente ejemplo  permite el acceso a los puertos de gestión desde las redes autorizadas, denegando el resto. El alias *localip* identifica las direcciones IP locales::
+Las ACLs para limitar el acceso a la gestión pueden construirse con el comando `ip access-list session`_ <nombre de acl>*. El comando entra en un submodo donde se configura cada regla.
+
+La sintaxis de las reglas es muy extensa y para más detalle se remite a la documentación. En este apartado simplemente daremos un ejemplo que autoriza el acceso a los puertos de gestión desde las redes incluidas en el alias creado antes, y deniega el resto. El alias *localip* identifica las direcciones IP locales::
 
   (config) $# ip access-list session <nombre acl>
   #              Permitir SSH y HTTPS únicamente desde redes de gestión.
@@ -541,68 +702,15 @@ El siguiente elemento necesario para limitar el acceso de gestión a las control
   5         any             localip       tcp      23           permit
   6         any             any           any                   permit
 
+.. _aplicacion_acl:
+
 **Aplicación de ACL**
 
-Las controladoras tienen dos tipos de interfaces:
-
-- **untrusted**: Típicamente son las interfaces de acceso. A todos los dispositivos conectados a estas interfaces (a todas las MACs aprendidas) se les asigna un **rol**. El rol determina las reglas de firewall que aplican al dispositivo. Todo lo que no esté explícitamente permitido por su rol, está implícitamente denegado. 
-
-- **trusted**: Típicamente son las interfaces de infraestructura, que conectan al datacenter, la WAN o Internet. A los dispositivos conectados a estas interfaces no se les asignan roles. Las reglas de firewall que se les aplican en este caso son las configuradas en la interfaz.
-
-  A su vez, una interfaz *trusted* puede tener una o varias VLANs *trusted*, si está en modo 802.1Q. Si no hay una ACL configurada en la interfaz o en la VLAN, todo el tráfico está autorizado.
-  
-Para evitar este comportamiento de *autorizado por defecto* en las interfaces y VLANs *trusted*, la lista de control de acceso anterior debe aplicarse a todas las interfaces *trusted*, en todas las VLANs *trusted* definidas en esa interfaz, con el comando `ip access-group`_ *<nombre de acl> session vlan <numero de vlan>* [#licencia_PEFNG]_::
+Las controladoras tienen dos tipos de interfaces, *trusted* y *untrusted*, que se introducen en el apartado :ref:`proposito_interfaces`. La lista de control de acceso anterior debe aplicarse a todas las interfaces *trusted*, en todas las VLANs *trusted* definidas en esa interfaz, con el comando `ip access-group`_ *<nombre de acl> session vlan <numero de vlan>* [#licencia_PEFNG]_::
 
   (config) $# interface Gigabit <slot>/<modulo>/<puerto>
   (config-if) $# ip access-group <nombre de la ACL> session vlan <numero de vlan>
   # Repetir para todas las VLANs trusted del puerto
-
-  # Para averiguar los puertos trusted, en los que debe estar aplicado el access-group:
-  $# show port trusted 
-
-  GE <slot>/<modulo>/<puerto1>
-  GE <slot>/<modulo>/<puerto2>
-  ...
-
-  # Para enumerar las VLANs trusted en esos puertos
-  $# show interface gigabit <slot>/<modulo>/<puerto1> trusted-vlan
-
-  Name:  GE<slot>/<modulo>/<puerto1>
-  Trusted Vlan(s)
-  1-4094
-
-  # Para averiguar cuales de las trusted VLANs estan activas en el puerto:
-  $# show interfaces gigabit <slot>/<modulo>/<puerto> switchport
-
-  # Ejemplo puerto en "Operational Mode: Access": Una sola VLAN
-  # La VLAN a proteger es la identifica en "Access Mode VLAN:"
-  $# show interfaces gigabit 0/0/13 switchport
-
-  Name:  GE0/0/13
-  Switchport:  Enabled
-  Administrative mode:  static access 
-  Operational mode:  static access 
-  Administrative Trunking Encapsulation:  dot1q
-  Operational Trunking Encapsulation:  dot1q
-  Access Mode VLAN: 3 (VLAN0003)
-  Trunking Native Mode VLAN: 1 (Default)
-  Trunking Vlans Enabled: NONE 
-  Trunking Vlans Active: NONE 
-
-  # Ejemplo puerto en "Operational mode: trunk" (802.1Q)
-  # Varias VLANs a proteger: Todas las de "Trunking VLANs Active:"
-  $# show interfaces gigabit 0/0/0 switchport
-
-  Name:  GE0/0/0
-  Switchport:  Enabled
-  Administrative mode:  trunk
-  Operational mode:  trunk
-  Administrative Trunking Encapsulation:  dot1q
-  Operational Trunking Encapsulation:  dot1q
-  Access Mode VLAN: 0 ((Inactive))
-  Trunking Native Mode VLAN: 255 (VLAN0255)
-  Trunking Vlans Enabled: 1-998,1000-4094
-  Trunking Vlans Active: 1-3,7,11-12,50,60,99-103,211,254-255
 
 **ACL Para bloque de gestión (caso branch)**
 
@@ -618,7 +726,7 @@ Para el caso branch, la lista de control de acceso de interfaz puede hacerse muc
 - ESP (IPSEC)
 - UDP 500 y 4500 (IKE v2 / NAT-T)
 
-::
+.. code: bash
 
   ip access-list <nombre acl>
     any any svc-dhcp  permit 
@@ -732,7 +840,7 @@ La zona horaria se configura con `clock timezone`_ *<nombre zona horaria> <offse
   
   clock timezone CET +1
 
-El ajuste automático de horario de verano, se habilita con `clock summer-time`_ *<nombre zona> recurring <fecha comienzo cambio> <fecha fin cambio> <offset utc>*. Las fechas de comienzo y fin del cambio se pueden especificar como *[first|last] <dia de la semana> <mes> <hora>*, por ejemplo *last sunday april 02:00*, o *last sunday october 02:00*::
+El ajuste automático de horario de verano se habilita con `clock summer-time`_ *<nombre zona> recurring <fecha comienzo cambio> <fecha fin cambio> <offset utc>*. Las fechas de comienzo y fin del cambio se pueden especificar como *[first|last] <dia de la semana> <mes> <hora>*, por ejemplo *last sunday april 02:00*, o *last sunday october 02:00*::
 
   $# Si no está configurado, no hay horario de verano.
   $# show run | include "clock summer-time"
@@ -753,9 +861,11 @@ Si el servidor NTP requiere autenticación, es necesario:
 
 - Activar autenticación NTP con la orden `ntp authentication`_.
 - Definir una clave de autenticación asociada a un *key-ID*, con el comando `ntp authentication-key`_ *<key-ID> md5 <hash MD5 de la clave>*.
-- Incluir el parámetro *<key-ID>* al configurar el servidor con la orden `ntp server`_ *key <key-ID>*.
+- Habilitar la clave como confiable con el parámetro `ntp trusted-key`_ <ID de la clave>
+- Incluir el parámetro *<key-ID>* al configurar el servidor con la orden `ntp server`_ *key <key-ID>*
 
-::
+.. code: bash
+
   # Si el comando no está configurado, no se usa autenticacion NTP
   $# show run | include "ntp authentication"
   Building configuration...
@@ -765,10 +875,15 @@ Si el servidor NTP requiere autenticación, es necesario:
   Building Configuration...
   ntp authentication-key <key-ID> md5 ********
 
+  $# show run | include "ntp trusted-key"
+  Building configuration...
+  ntp trusted-key <key-ID>
+
   $# show run | include "ntp servers"
+  Building configuration...
   ntp server <IP o FQDN del servidor NTP> key <key-ID>
 
-El estado actual de la configuraciónde autenticación puede comprobarse con `show ntp status`_, y las claves NTP definidas, con `show ntp authentication-keys`_::
+El estado actual de la configuración de autenticación puede comprobarse con `show ntp status`_, y las claves NTP definidas, con `show ntp authentication-keys`_::
 
   $# show ntp authentication-keys
 
@@ -780,7 +895,7 @@ El estado actual de la configuraciónde autenticación puede comprobarse con `sh
 
   Authentication:         enabled
 
-No se puede marcar un servidor como preferente; la controladora elige el más adecuado en función del stratum y el retardo. La lista de servidores con los que ha sincronizado se puede obtener con el comando `show ntp servers`_ *[brief]*. El servidor seleccionado estará marcado con un **\***::
+No se puede marcar un servidor como preferente; la controladora elige el más adecuado en función del stratum y el retardo. La lista de servidores con los que ha sincronizado se puede obtener con el comando `show ntp servers`_ *[brief]*. El servidor seleccionado estará marcado con un "**\***"::
 
   $# show ntp servers
   
@@ -815,24 +930,19 @@ La controladora puede proporcionar a su vez servicio NTP a dispositivos conectad
   Building configuration...
   ntp standalone vlan-range <lista de vlans>
 
-En el caso de quere que la controladora actúe como servidor NTP pero sólo para dispositivos autorizados, se puede hacer que la controladora sólo admita peticiones NTP con alguna de las claves asociadas a un *<key-ID>*, con el comando `ntp trusted-key`_ *<key-ID>*::
-
-  #$ Si no está configurado, la controladora no solicita clave a los clientes NTP
-  show run | include "ntptrusted-key"
-  Building configuration...
-  ntp trusted-key <key-ID>
-
 Logging
 -------
 
 Las controladoras permiten enviar el log a un servidor syslog externo utilizando el puerto UDP 514. Los servidores a los que la controladora enviará el log se configuran con el comando `logging`_ *<ip address>*.
 
-Los logs que genera la controladora se agrupan en *categorías*, y estos a su vez en *subcategorías* y *procesos*. Por cada categoría / subcategoría / proceso, es posible especificar el nivel de *severidad* mínimo. Los mensajes sólo se enviarán al servidor si igualan o superan el nivel de severidad. La lista completa de severidades, categorías y subcategorías puede consultarse en la documentación del comando `logging level`_.
+Los logs que genera la controladora se agrupan en *categorías*, y estos a su vez en *subcategorías* y *procesos*. Por cada categoría / subcategoría / proceso, es posible especificar el nivel de *severidad* mínimo.
+
+Los mensajes sólo se enviarán al servidor si igualan o superan el nivel de severidad. La lista completa de severidades, categorías y subcategorías puede consultarse en la documentación del comando `logging level`_.
 
 - La facility que usará la controladora se puede configurar a nivel global con el comando `logging facility`_ *<local0|local1|...|local7>*. 
-- Las categorías y subcategorías se habilitan a nivel global con el comando `logging level`_ *<nivel> <categoria> [subcat <subcategoria>] [process <proceso>]*.
+- Las categorías y subcategorías se habilitan a nivel global con el comando `logging level`_ *<nivel> <categoria> [subcat <subcategoria>] [process <proceso>]*
 
-::
+.. code: bash
 
   # Si no está explícitamente configurada, la facility por defecto es "local0"
   $# show run | include "logging facility"
@@ -913,7 +1023,7 @@ SNMP
 
 Las controladoras soportan SNMP v1, v2c y v3. La **versión** de SNMP **no es configurable**. Por defecto, la controladora responde a peticiones en cualquier versión. Sólo está disponible acceso SNMP de **lectura** (no escritura). Las configuraciones relacionadas con SNMP que soporta la controladora son:
 
-.. list-table:: SNMP
+.. list-table::
    :header-rows: 1
 
    * - Configuración
@@ -1010,14 +1120,136 @@ Los parámetros no tienen valores por defecto, si no aparecen en la configuraci�
 Interfaces
 ==========
 
+.. _proposito_interfaces:
+
 Propósito
 ---------
+
+Las interfaces físicas de la controladora, a efectos de seguridad, se clasifican en dos tipos:
+
+- **untrusted**: Típicamente son las interfaces de acceso. A todos los dispositivos conectados a estas interfaces (a todas las MACs aprendidas) se les asigna un **rol**.
+
+  El modo de asignar el rol al usuario es flexible: pueden usarse reglas de derivación por algunos atributos del endpoint (VLAN , IP, MAC), o puede usarse autenticación (por MAC, 802.1X, portal cautivo...).
+
+  En cualquier caso, el rol es lo que determina las reglas de firewall que aplican al dispositivo. La naturaleza del rol es la de una lista blanca: Todo lo que no esté explícitamente permitido por el rol, está implícitamente denegado.
+
+- **trusted**: Típicamente son las interfaces de infraestructura, que conectan al datacenter, la WAN o Internet. A los dispositivos conectados a estas interfaces no se les asignan roles. Las reglas de firewall que se les aplican en este caso son las configuradas en la ACL de la interfaz, si existe.
+
+  A su vez, una interfaz *trusted* puede tener una o varias VLANs *trusted*, si está en modo 802.1Q. Si no hay una ACL configurada en la interfaz o en la VLAN, todo el tráfico está autorizado.
+
+Como se introduce en el apartado de :ref:`control_acceso_acl`, las reglas de hardening se aplican a las interfaces *untrusted*. En las interfaces *trusted* aplican los roles que se hayan definido para cada tipo de usuario o dispositivo.
+
+Para enumerar las interfaces activas y sus propiedades, se usan los comandos `show port`_ y `show interface`_ *gigabit <slot>/<modulo>/<puerto>*::
+
+  # Enumeración de las interfaces de la controladora.
+  # Los puertos "PC" son PortChannels
+  $# show port status
+
+  Port Status
+  -----------
+  Slot-Port  PortType  AdminState  OperState  PoE  Trusted  SpanningTree  PortMode  Speed     Duplex  SecurityError
+  ---------  --------  ----------  ---------  ---  -------  ------------  --------  -----     ------  -------------
+  0/0/0      GE        Enabled     Up         N/A  Yes      Disabled      Trunk     1 Gbps    Full    No
+  0/0/1      GE        Enabled     Up         N/A  Yes      Disabled      Access    100 Mbps  Full    No
+  0/0/2      GE        Enabled     Down       N/A  Yes      Disabled      Access    Auto      Auto    No
+  0/0/3      GE        Enabled     Down       N/A  Yes      Disabled      Access    Auto      Auto    No
+  0/0/4      GE        Enabled     Down       N/A  N/A      N/A           PC7       Auto      Auto    No
+  0/0/5      GE        Enabled     Down       N/A  N/A      N/A           PC7       Auto      Auto    No
+  PC7        PC        Enabled     Down       N/A  Yes      Disabled      Access    N/A       N/A     No
+
+  # Para averiguar los puertos trusted:
+  $# show port trusted 
+
+  GE <slot>/<modulo>/<puerto1>
+  GE <slot>/<modulo>/<puerto2>
+  ...
+
+  # Para enumerar las VLANs trusted en esos puertos
+  $# show interface gigabit <slot>/<modulo>/<puerto1> trusted-vlan
+
+  Name:  GE<slot>/<modulo>/<puerto1>
+  Trusted Vlan(s)
+  1-4094
+
+  # Para averiguar cuales de las trusted VLANs estan activas en el puerto:
+  # show interfaces gigabit <slot>/<modulo>/<puerto> switchport
+  #
+  # Ejemplo puerto en "Operational Mode: Access": Una sola VLAN
+  # La VLAN a proteger es la identifica en "Access Mode VLAN:"
+  $# show interfaces gigabit 0/0/13 switchport
+
+  Name:  GE0/0/1
+  Switchport:  Enabled
+  Administrative mode:  static access 
+  Operational mode:  static access 
+  Administrative Trunking Encapsulation:  dot1q
+  Operational Trunking Encapsulation:  dot1q
+  Access Mode VLAN: 30 (VLAN0030)
+  Trunking Native Mode VLAN: 1 (Default)
+  Trunking Vlans Enabled: NONE 
+  Trunking Vlans Active: NONE 
+
+  # Ejemplo puerto en "Operational mode: trunk" (802.1Q)
+  # Varias VLANs a proteger: Todas las de "Trunking VLANs Active:"
+  $# show interfaces gigabit 0/0/0 switchport
+
+  Name:  GE0/0/0
+  Switchport:  Enabled
+  Administrative mode:  trunk
+  Operational mode:  trunk
+  Administrative Trunking Encapsulation:  dot1q
+  Operational Trunking Encapsulation:  dot1q
+  Access Mode VLAN: 0 ((Inactive))
+  Trunking Native Mode VLAN: 255 (VLAN0255)
+  Trunking Vlans Enabled: 1-998,1000-4094
+  Trunking Vlans Active: 1-12,99-103,211,254-255
 
 Desactivación
 -------------
 
+Las interfaces que no estén en uso pueden desactivarse con un *shutdown* estándar dentro de la configuración de la interfaz::
+
+  # Comprobacion de estado de interfaz en show running
+  $# show running | begin "<slot>/<modulo>/<puerto>"
+  Building configuration...
+  interface gigabitethernet <slot>/<modulo>/<puerto>
+    description "GE0/0/3"
+    shutdown
+    trusted
+    trusted vlan 1-4094
+  !
+  
+  # Comprobacion mediante show port status: admin state = Disabled
+  $# show port status
+
+  Port Status
+  -----------
+  Slot-Port  PortType  AdminState  OperState  PoE  Trusted  SpanningTree  PortMode  Speed     Duplex  SecurityError
+  ---------  --------  ----------  ---------  ---  -------  ------------  --------  -----     ------  -------------
+  # ... lineas omitidas
+  0/0/3      GE        Disabled    Down       N/A  Yes      Disabled      Access    Auto      Auto    No
+  # ... lineas omitida
+
 Etiquetado
 ----------
+
+A cada interfaz puede asignársele un nombre descriptivo con el parámetro *description* dentro de la configuración de la interfaz::
+
+  # Comprobacion de descripción de interfaz en show running
+  $# show running | begin "<slot>/<modulo>/<puerto>"
+  Building configuration...
+  interface gigabitethernet <slot>/<modulo>/<puerto>
+    description "pruebas shutdown"
+    shutdown
+    trusted
+    trusted vlan 1-4094
+  !
+  
+  # Comprobacion mediante show interface
+  $# show interface gigabit <slot>/<mod>/<puerto>
+  # ... lineas omitidas
+  Description: pruebas shutdown (Fiber Connector)
+  # ... lineas omitidas
 
 .. _modos de acceso: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Content/ArubaFrameStyles/1CommandList/Chapters/CLI_Access.htm
 .. _copy: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Content/ArubaFrameStyles/1CommandList/copy.htm
@@ -1076,11 +1308,19 @@ Etiquetado
 .. _show snmp trap-host: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_snmp_trap_host.htm
 .. _show snmp trap-list: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_snmp_trap_list.htm
 .. _show snmp user-table: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_snmp_user_table.htm
-
+.. _firewall: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/firewall.htm
+.. _show interface: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_interface.htm
+.. _show port: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_port.htm
+.. _show firewall-cp: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_firewall_cp.htm
+.. _show firewall: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_firewall.htm
+.. _show cp-bwcontracts: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/show_cp_bwcontracts.htm
+.. _firewall cp: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/firewall_cp.htm
+.. _firewall cp-bandwidth-contract: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/firewall_cp_bandwidth_contract.htm
+.. _cp-bandwidth-contract: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm#ArubaFrameStyles/1CommandList/cp_bandwidth_contract.htm
 
 .. rubric:: Footnotes
 
 .. [#omision_firewalls] Por simplicidad, se han omitido en el dibujo los firewalls / NATs perimetrales y entre zonas (DMZs).
-.. [#branch_radius] En el caso de las controladoras Branch, los protocolos de gestión hacia servicios centralizados (Clearpass, Airwave, etc.) van encapsulados por el túnel IPSEC. Con la excepción de posibles portales de usuarios invitados, a los que se accede a través de Internet.
 .. [#tiempo_inactividad_web] El comando *user-absolute-session-timeout* está disponible desde la versión de ArubaOS 6.4.4.0.
 .. [#licencia_PEFNG] Esta funcionalidad requiere de la licencia PEFNG.
+.. [#diffie_hellman_2_vulnerable] Ver https://weakdh.org/imperfect-forward-secrecy-ccs15.pdf.

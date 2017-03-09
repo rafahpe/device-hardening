@@ -34,10 +34,12 @@ Referencias
   - `ArubaOS 6.5.X user guide`_
   - `ArubaOS 6.5.X CLI reference guide`_
   - `ArubaOS 6.5.X Web Help`_
+  - `ArubaOS Controllers hardening guide`_
 
 .. _ArubaOS 6.5.X user guide: https://support.arubanetworks.com/Documentation/tabid/77/DMXModule/512/Command/Core_Download/Default.aspx?EntryId=23671
 .. _ArubaOS 6.5.X CLI reference guide: https://support.arubanetworks.com/Documentation/tabid/77/DMXModule/512/Command/Core_Download/Default.aspx?EntryId=23673
 .. _ArubaOS 6.5.X Web Help: http://www.arubanetworks.com/techdocs/ArubaOS_65x_WebHelp/Web_Help_Index.htm
+.. _ArubaOS Controllers hardening guide: https://arubapedia.arubanetworks.com/arubapedia/images/4/44/ArubaOS_Hardening_Guide_10302015.pdf
   
 - Switches Aruba MAS:
 
@@ -51,7 +53,9 @@ Referencias
 
   - `ArubaOS switch management and configuration guide`_
   - `ArubaOS switch feature and command index`_
-
+  - `ArubaOS switch hardening guide`_
+  
+.. _ArubaOS switch hardening guide: https://arubapedia.arubanetworks.com/arubapedia/images/f/ff/ArubaOS-Switch_Hardening_Guide.docx
 .. _ArubaOS switch management and configuration guide: http://h20566.www2.hpe.com/portal/site/hpsc/template.PAGE/action.process/public/psi/manualsDisplay/?sp4ts.oid=1008995294&javax.portlet.action=true&spf_p.tpst=psiContentDisplay&javax.portlet.begCacheTok=com.vignette.cachetoken&spf_p.prp_psiContentDisplay=wsrp-interactionState%3DdocId%253Demr_na-c05161701%257CdocLocale%253Den_US&javax.portlet.endCacheTok=com.vignette.cachetoken
 .. _ArubaOS switch feature and command index: http://h20566.www2.hpe.com/portal/site/hpsc/template.PAGE/action.process/public/psi/manualsDisplay/?sp4ts.oid=1008995294&javax.portlet.action=true&spf_p.tpst=psiContentDisplay&javax.portlet.begCacheTok=com.vignette.cachetoken&spf_p.prp_psiContentDisplay=wsrp-interactionState%3DdocId%253Demr_na-c05161698%257CdocLocale%253Den_US&javax.portlet.endCacheTok=com.vignette.cachetoken
 
@@ -66,9 +70,17 @@ Referencias
 - Clearpass:
 
   - `Clearpass hardening guide v4`_
+  - `Clearpass hardening guide v5`_
   - `Clearpass policy manager user guide`_
   - `Clearpass deployment guide`_
 
 .. _Clearpass hardening guide v4: https://support.arubanetworks.com/Documentation/tabid/77/DMXModule/512/Command/Core_Download/Default.aspx?EntryId=20523
+.. _Clearpass hardening guide v5: https://arubapedia.arubanetworks.com/arubapedia/images/9/98/ClearPass_hardening_Guide_v5.pdf
 .. _Clearpass deployment guide: http://www.arubanetworks.com/techdocs/ClearPass/Aruba_DeployGd_HTML/Default.htm#HTML_Intro.htm%3FTocPath%3D_____1
 .. _Clearpass policy manager user guide: http://www.arubanetworks.com/techdocs/ClearPass/6.6/PolicyManager/index.htm#CPPM_UserGuide/About%20ClearPass/Intro_ClearPass.htm
+
+- Vulnerabilidades:
+
+  - `Boletines de seguridad Aruba`_
+
+.. _Boletines de seguridad Aruba: http://www.arubanetworks.com/support-services/security-bulletins/
