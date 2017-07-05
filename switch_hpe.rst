@@ -30,7 +30,7 @@ El switch incluye dos usuarios predefinidos, *manager* y *operator*, asociados a
 Copia de configuración
 ----------------------
 
-La configuración local del switch puede enviarse a un servidor SFTP o TFTP externo, mediante el comando `copy`_::
+La configuración local del switch puede enviarse a un servidor SFTP o TFTP externo, mediante el comando *copy*::
 
   # Copia de configuración activa a servidor SFTP.
   # Este comando solicita el password del usuario SFTP interactivamente.
@@ -54,11 +54,11 @@ A su vez, *include-credentials* puede estar activo pero no habilitado, porque ha
 
 En función del estado de estos comandos, el comportamiento del switch es distinto y se resume en la siguiente tabla:
 
-.. image:: _static/include_credentials.*
+.. image:: _static/include-credentials.*
 
 *encrypt-credentials* utiliza una clave secreta que por defecto es igual para todos los switches, para facilitar el backup y el copy-paste de configuración. La clave puede cambiarse, pero en ese caso debería cambiarse en todos los switches susceptibles de ser gestionados por las mismas herramientas.
 
-El estado de *include-credentials* y *encrypt-credentials* puede comprobarse con los comandos:
+El estado de *include-credentials* y *encrypt-credentials* puede comprobarse con los comandos::
 
   $# show include-credentials
 
@@ -143,8 +143,8 @@ rol                   Privilegios
 ===================== =================================================
 manager               Acceso total. **Rol por defecto**.
 operator              Acceso limitado (estado del equipo, contadores,
-                      comandos sencillos de troubleshooting -
-					  ping, tracert, etc)
+                      comandos sencillos de troubleshooting como
+                      ping, tracert, etc)
 ===================== =================================================
 
 Los dos roles por defecto existen en todos los switches y no necesitan ni admiten configuración de permisos (no se pueden modificar los permisos asociados a cada rol).
@@ -158,7 +158,7 @@ Alcance                              Ejemplos de reglas del grupo
 ==================================== ===============================
 Comandos particulares                command:ping
                                      command:configure
-			                         command:interface;shutdown
+                                     command:interface;shutdown
 Cualquier acción sobre VLANs         policy:vlan:100
                                      policy:vlan:101-103
 Cualquier acción sobre interfaces    policy:interface:5
@@ -167,7 +167,7 @@ Bloques completos de funcionalidades feature:rwx:ospf
                                      feature:r:radius
 ==================================== ===============================
 
-Cuando RBAC está activo, cada usuario (excepto los predefinidos) tiene asociado uno de estos grupos, que determina qué está autorizado a hacer en el switch. La información detallada sobre las políticas posibles debe consultarse en el manual `switch_access_security`_, en el capítulo dedicado a RBAC.
+Cuando RBAC está activo, cada usuario (excepto los predefinidos) tiene asociado uno de estos grupos, que determina qué está autorizado a hacer en el switch. La información detallada sobre las políticas posibles debe consultarse en el manual `access_security_guide`_, en el capítulo dedicado a RBAC.
 
 El switch incluye 16 grupos **preconfigurados** para usar con RBAC, *Level-0* hasta *Level-15*. Los permisos asociados a cada grupo son modificables, y pueden listarse con el comando *show authorization group*::
 
@@ -236,20 +236,20 @@ Cuando un usuario inicia sesión, se le asigna un rol y, si RBAC está activo, u
   - Si el usuario es uno de los :ref:`usuarios_predefinidos`,
 
     - Puede acceder por línea de comandos o web.
-	- Tiene el nivel de acceso que corresponda a su rol predefinido, *manager* u *operator*.
-	- No tiene grupo, no está limitado por RBAC.
+    - Tiene el nivel de acceso que corresponda a su rol predefinido, *manager* u *operator*.
+    - No tiene grupo, no está limitado por RBAC.
 
   - Si el usuario es uno de los :ref:`usuarios_locales`,
 
     - Puede acceder por línea de comandos - no por web.
-	- Tiene el rol manager.
-	- Si RBAC está activo, tiene un grupo asignado al usuario en la configuración, que limita los comandos que puede utilizar (a pesar de tener rol de manager).
+    - Tiene el rol manager.
+    - Si RBAC está activo, tiene un grupo asignado al usuario en la configuración, que limita los comandos que puede utilizar (a pesar de tener rol de manager).
 
   - En el caso de :ref:`usuarios_remotos`, son los atributos RADIUS los que determinan el rol y el grupo.
 
     - Si RBAC no está activo, las decisiones de acceso se basan sólo en el rol (*operator* / *manager*).
-	- Si RBAC está activo, las decisiones se basan en rol y grupo, igual que para los usuarios locales.
-	- Si el rol asignado es *operator*, el grupo no aplica.
+    - Si RBAC está activo, las decisiones se basan en rol y grupo, igual que para los usuarios locales.
+    - Si el rol asignado es *operator*, el grupo no aplica.
 
 .. _usuarios_predefinidos:
 
@@ -268,7 +268,7 @@ El nombre del usuario asociado a cada rol predefinido, y su contraseña, se modi
   password operator user-name "operator" sha1 "ca5f9f6e41b239d8a99b700f**************"
   password manager user-name "manager" sha1 "ca5f9f6e41b239d8a99b700f8**************""
 
-Si está activo el hash de contraseñas SHA-256, el formato del comando cambia ligeramente:
+Si está activo el hash de contraseñas SHA-256, el formato del comando cambia ligeramente::
 
   $# show running-config | include password
   password operator user-name "operator" sha256 "d847a0a3e56ed1f2badea6afc81f024b5c76954057dbfd3684************"
@@ -305,7 +305,7 @@ Los usuarios locales siempre tienen asignado un grupo (ver :ref:`roles_grupos`),
 
 Las políticas de complejidad y expiración de passwords configuradas en el usuario complementan a las :ref:`politicas_complejidad` globales.
 
-Los usuarios locales configurados en el switch, y sus políticas, se pueden extraer de la configuración:
+Los usuarios locales configurados en el switch, y sus políticas, se pueden extraer de la configuración::
 
   show running-config | include "authentication local-user"
   aaa authentication local-user "test" group "Level-1" password sha256 "d847a0a3e56ed1f2badea6afc81f024b5c76954057dbfd36842dcd**********"
@@ -344,10 +344,10 @@ password configuration alert-before-expiry  Configura un periodo de preaviso al 
                                             su contraseña.
 password configuration expired-user-login   Configura un periodo de gracia después de la caducidad de la
                                             contraseña, y un número máximo de intentos de autenticación
-											durante ese periodo de gracia.
+                                            durante ese periodo de gracia.
 =========================================== ================================================================
 
-La referencia completa de estos comandos puede consultarse en la Access Security Guide de la versión correspondiente (`access security guide`_). El estado de la configuración puede obtenerse con el comando *show password-configuration*::
+La referencia completa de estos comandos puede consultarse en la Access Security Guide de la versión correspondiente (`access_security_guide`_). El estado de la configuración puede obtenerse con el comando *show password-configuration*::
 
   $# show password-configuration
   Global password control configuration
@@ -371,8 +371,10 @@ La referencia completa de estos comandos puede consultarse en la Access Security
   Username checking                    : Disabled
   Repeat characters checking           : Disabled
 
-Autenticación remota
---------------------
+.. _usuarios_remotos:
+
+Usuarios remotos
+----------------
 
 La autenticación remota puede realizarse contra RADIUS, utilizando grupos ordenados de servidores de autenticación. Los switches soportan dos mecanismos de validación de credenciales por Radius:
 
@@ -390,7 +392,7 @@ Pueden asignarse distintos mecanismos de autenticación primario y secundario en
   - El protocolo de acceso: consola, telnet, ssh y web.
   - El nivel de acceso: login (shell no privilegiado) o enable (shell privilegiado)
 
-La creación de los `server groups`_ está fuera del alcance de este documento. Los server-groups se asignan a cada protocolo y tipo en los comandos *aaa authentication [console|telnet|ssh|web] [login|enable] [radius|peap-mschapv2] server-group <nombre del server-group> [local|none|authorized]*::
+La creación de los *server groups* está fuera del alcance de este documento. Los server-groups se asignan a cada protocolo y tipo en los comandos *aaa authentication [console|telnet|ssh|web] [login|enable] [radius|peap-mschapv2] server-group <nombre del server-group> [local|none|authorized]*::
 
   $# show running-config | include "aaa authentication"
   aaa authentication telnet login radius server-group "rad-group" local
@@ -441,6 +443,7 @@ El proceso de control de acceso es:
   - Si el usuario tiene rol *manager*, accede al shell de manager. En otro caso, se rechaza el acceso.
   - Si está habilitado RBAC (ver ref:`roles_grupos`), aunque el usuario tenga rol de manager y esté en la shell de manager, las acciones que puede ejecutar están limitadas por el grupo asignado por el Radius.
 
+::
 
   # Bloque de configuración que activa la autenticación por servidor remoto.
   $# show run | begin "aaa authentication mgmt"
@@ -469,7 +472,7 @@ El servidor remoto debe asignar el rol del usuario administrador mediante una VS
 
 Si el repositorio de autenticación lo admite, es posible utilizar MsCHAPv2 para la autenticación remota, de forma que las credenciales de usuario no vayan en claro (PAP) en el mensaje RADIUS. Esta medida no es necesaria si se utiliza TACACS para la autenticación.
 
-Para activar *mchapv2*, se utiliza la opción **mchapv2** del bloque de configuración `aaa authentication mgmt`_::
+Para activar *mchapv2*, se utiliza la opción **mchapv2** del bloque de configuración *aaa authentication mgmt*::
 
   $# show run | begin "aaa authentication  mgmt"
   aaa authentication mgmt
@@ -493,7 +496,7 @@ Password recovery
 Los switches HPE-Aruba tienen dos mecanismos de password recovery:
 
 - Mediante el botón "Clear" en el frontal (*Clear Password*). Este botón restablece las cuentas de los usuarios predefinidos (*manager*, *operator*) y les borra el password, lo que permite acceder a la consola sin contraseña, y manteniendo el resto de la configuración del equipo intacta.
-- Mediante contraseñas de un sólo uso generadas por el TAC, a partir de la MAC del equipo (*Password Recovery).
+- Mediante contraseñas de un sólo uso generadas por el TAC, a partir de la MAC del equipo (*Password Recovery*).
 
 El estado de los mecanismos puede consultarse con *show front-panel security*::
 
@@ -707,3 +710,8 @@ No se puede marcar un servidor como preferente; el switch elige el más adecuado
 
   System Time            : Wed Jul  5 16:48:13 2017
   Reference Time         : Wed Jul  5 16:31:28 2017
+
+  
+  
+.. _access_security_guide: http://h20565.www2.hpe.com/portal/site/hpsc/template.PAGE/action.process/public/psi/manualsDisplay/?sp4ts.oid=1008605435&javax.portlet.action=true&spf_p.tpst=psiContentDisplay&javax.portlet.begCacheTok=com.vignette.cachetoken&spf_p.prp_psiContentDisplay=wsrp-interactionState%3DdocId%253Demr_na-c05365146%257CdocLocale%253Den_US&javax.portlet.endCacheTok=com.vignette.cachetoken
+
