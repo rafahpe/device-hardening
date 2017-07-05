@@ -13,7 +13,7 @@ Roles
 
 En la solución HPE-Aruba, una controladora (versión 6.4, 6.5) puede desempeñar uno de tres roles posibles: Master, Local o Branch. Desde el punto de vista de configuración,
 
-- Las controladoras **Master** contienen la configuración del servicio WiFi. Estas controladoras se provisionan y configuran manualmente, o a través de una plataforma de gestión como Airwave o Aruba Central.
+- Las controladoras **Master** contienen la configuración del servicio WiFi. Estas controladoras se provisionan y configuran manualmente, o a través de una plataforma de gestión como Airwave.
 - Las controladoras **Local** replican la configuración del servicio WiFi desde una controladora máster, pero algunos parámetros básicos de conectividad de la controladora (VLANs, direccionamiento IP, gateway, etc) requieren una configuración local (manual o mediante plataforma de gestión).
 - Las controladoras **Branch** obtienen toda su configuración desde una controladora máster, incluyendo los parámetros básicos de conectividad. Estas controladoras se provisionan utilizando un mecanismo de autodescubrimiento *Zero Touch Provisioning*, basado en servicios cloud de HPE-Aruba.
 
@@ -52,7 +52,7 @@ Cualquiera de los tres roles puede recibir y conmutar tráfico procedente de APs
 Además de estos flujos, las controladoras pueden establecer las siguientes conexiones entrantes y salientes:
 
 **Entrantes**:
-  
+
   - Gestión:
 
     - HTTP/HTTPS (TCP 80, 443, 4343). 80 redirige a 443, y 443 redirige inmediatamente a 4343 en el caso de acceso a gestión.
@@ -70,12 +70,12 @@ Además de estos flujos, las controladoras pueden establecer las siguientes cone
     - HTTPS (TCP 443, 4343) cuando hay portal cautivo.
 
   - Otros protocolos de conectividad remota:
-  
+
     - L2TP (UDP 1701)
 	- PPTP (TCP 1723)
 
 **Salientes**:
-  
+
   - Infraestructura:
 
     - DNS (UDP 53).
@@ -131,11 +131,11 @@ Para tener acceso a la CLI de la controladora, es necesario utilizar un cliente 
 
   # Acceso inicial en modo user: El prompt del sistema utiliza el carácter ">"
   $>
-  
+
   # Habilitar el modo privilegiado con el comando "enable".
   # Solicita interactivamente la clave de enable
   $> enable
- 
+
   # Modo privilegiado activo: El prompt del sistema utiliza "#"
   $#
 
@@ -147,7 +147,7 @@ La configuración local de las controladoras puede enviarse a un servidor FTP o 
   # Copia de configuración activa a servidor FTP.
   # Este comando solicita el password del usuario FTP interactivamente.
   $# copy running-config ftp: <ftphost> <user> <filename> <remote dir>
-  
+
   # Si se prefiere usar SCP en lugar de FTP, es necesario copiar
   # primero la configuración a la flash local.
   $# copy running-config flash: current.cfg
@@ -237,7 +237,7 @@ El failover de autenticación remota a local (en caso de no respuesta desde ning
   $# show running-config | include "mgmt-user localauth-disable"
   Building Configuration...
 
-  # El estado del failover puede consultarse explícitamente con:  
+  # El estado del failover puede consultarse explícitamente con:
   $# show mgmt-user local-authentication-mode
   Local Authentication Mode:      Enabled
 
@@ -250,7 +250,7 @@ Las controladoras permiten definir múltiples parámetros para la política de c
 Parámetro                           Descripción                                           Valor por defecto
 =================================== ===================================================== ===================
 password-lock-out                   Número de intentos fallidos (en 3 minutos)            0 (deshabilitado)
-                                    que bloquean la cuenta.                               
+                                    que bloquean la cuenta.
 password-lock-out-time              Tiempo durante el que la cuenta permanece bloqueada.  3
 password-max-character-repeat       Máximo número de caracteres repetidos.                0 (deshabilitado)
 password-min-digit                  Mínimo número de dígitos.                             0 (deshabilitado)
@@ -292,7 +292,7 @@ El valor de todos los modificadores (y no sólo de los que no están en su valor
   Maximum Number of failed attempts in 3 minute window to lockout password based user                       5 attempts
   Time duration to lockout the certificate based user upon crossing the "lock-out" threshold                3 minutes
   Time duration to lockout the password based user upon crossing the "lock-out" threshold                   10 minutes
-  
+
 Autenticación remota
 --------------------
 
@@ -320,7 +320,7 @@ La creación de los `server groups`_ está fuera del alcnce de este documento. E
   Enable        Yes
   MSCHAPv2      Disabled
 
-El servidor remoto debe asignar el rol del usuario administrador mediante una VSA reconocida (*Aruba-Admin-Role*). En caso contrario, el usuario adquiere el rol configurado con la opción *default-role*. Es aconsejable que ese rol sea **no-access**.
+El servidor remoto debe asignar el rol del usuario administrador mediante una VSA reconocida (*Aruba-Admin-Role*). En caso contrario, el usuario adquiere el rol configurado con la opción *default-role*. Es aconsejable que ese rol por defecto sea **no-access**.
 
 Si el repositorio de autenticación lo admite, es posible utilizar MsCHAPv2 para la autenticación remota, de forma que las credenciales de usuario no vayan en claro (PAP) en el mensaje RADIUS. Esta medida no es necesaria si se utiliza TACACS para la autenticación.
 
@@ -462,7 +462,7 @@ La conexión de APs remotos a las controladoras se realiza a través de IPSEC, u
 
   # Asignación del grupo 14 a PFS.
   (config) $# crypto dynamic-map default-ikev2-dynamicmap 10000
-  (config-dynamic-map) $# set pfs-group14
+  (config-dynamic-map) $# set pfs-group 14
 
 Protección del plano de control (rate-limit)
 --------------------------------------------
@@ -518,12 +518,12 @@ También pueden mitigarse varios ataques de flooding habituales (ARP, SYN, ICMP.
   # ... lineas omitidas
   firewall attack-rate cp 16384
   firewall attack-rate grat-arp 50 drop
-  
+
 
   # Los parámetros que tienen el valor por defecto no salen
   # en la configuración. Se pueden consultar explícitamente con "show firewall"
   $# show firewall
-  
+
   Global firewall policies
   ------------------------
   Policy                                       Action                                          Rate         Port
@@ -650,7 +650,7 @@ Para facilitar la construcción de ACLs, se recomienda agrupar las subredes de g
    network 10.0.100.0/26
    network 10.0.200.64/26
   !
-  
+
   # Comprobacion con comando "show"
   $# show netdestination <alias gestion>
 
@@ -714,28 +714,19 @@ Las controladoras tienen dos tipos de interfaces, *trusted* y *untrusted*, que s
 
 **ACL Para bloque de gestión (caso branch)**
 
-En el caso de las controladoras en modo branch, se recomienda ser mucho más estricto con las ACLs:
+En el caso de las controladoras en modo branch, es posible ser más estricto con las ACLs:
 
 - Las únicas interfaces *trusted* deben ser las correspondientes a los uplinks (WAN, ADSL).
 - Los uplinks típicamente tendrán una única VLAN, y estarán en modo acceso.
 - El único tráfico entrante que tiene que acceder a las controladoras a través de esas VLANS es el tráfico del túnel IPSEC.
 
-Para el caso branch, la lista de control de acceso de interfaz puede hacerse mucho más restrictiva, permitiendo sólo:
+Para el caso branch, la lista de control de acceso de interfaz puede hacerse más restrictiva, permitiendo sólo:
 
 - DHCP (el direccionamiento de uplink de las Branches suele ser dinámico)
 - ESP (IPSEC)
 - UDP 500 y 4500 (IKE v2 / NAT-T)
-
-.. code: bash
-
-  ip access-list <nombre acl>
-    any any svc-dhcp  permit 
-    any any svc-natt permit
-    any any svc-ike  permit
-    any any svc-esp  permit
-  !
-
-La lista de control de acceso se aplicaría a interfaces y vlans *trusted*, igual que en el apartado anterior.
+- UDP 123 (NTP)
+- UDP 53 (DNS) y TCP 80, 443 (HTTP/HTTPS) para la autoprovisión con Aruba Activate.
 
 Control de acceso a gestión (Clearpass)
 ---------------------------------------
@@ -812,7 +803,7 @@ DNS se habilita o inhabilita a nivel global con el comando `ip domain lookup`_::
   # Si el comando no aparece en la configuración, está en su valor por defecto: habilitado.
   $# show run | include "ip domain lookup"
   Building configuration...
-  
+
   # Se puede comprobar explícitamente con "show ip domain-name"
   $# show ip domain-name
 
@@ -837,7 +828,7 @@ La zona horaria se configura con `clock timezone`_ *<nombre zona horaria> <offse
   clock timezone CET +1
 
   $# show clock timezone
-  
+
   clock timezone CET +1
 
 El ajuste automático de horario de verano se habilita con `clock summer-time`_ *<nombre zona> recurring <fecha comienzo cambio> <fecha fin cambio> <offset utc>*. Las fechas de comienzo y fin del cambio se pueden especificar como *[first|last] <dia de la semana> <mes> <hora>*, por ejemplo *last sunday april 02:00*, o *last sunday october 02:00*::
@@ -848,7 +839,7 @@ El ajuste automático de horario de verano se habilita con `clock summer-time`_ 
   clock summer-time CEST last sunday april 02:00 last sunday october 02:00 02
 
   $# show clock summer-time
-  
+
   clock summer-time CEST last sunday april 02:00 last sunday october 02:00 02
 
 La lista de servidores NTP con los que la controladora se sincronizará se configura con el comando `ntp server`_ *<direccion IP> [iburst] [key <key-id>]* (puede repetirse varias veces para incluir más de un servidor)::
@@ -871,7 +862,7 @@ Si el servidor NTP requiere autenticación, es necesario:
   Building configuration...
   ntp authentication
 
-  $# show run | include "ntp authentication-key" 
+  $# show run | include "ntp authentication-key"
   Building Configuration...
   ntp authentication-key <key-ID> md5 ********
 
@@ -890,7 +881,7 @@ El estado actual de la configuración de autenticación puede comprobarse con `s
   Key Id       md5 secret
   --------     ----------
   <key-ID>     ********
-  
+
   $# show ntp status
 
   Authentication:         enabled
@@ -898,7 +889,7 @@ El estado actual de la configuración de autenticación puede comprobarse con `s
 No se puede marcar un servidor como preferente; la controladora elige el más adecuado en función del stratum y el retardo. La lista de servidores con los que ha sincronizado se puede obtener con el comando `show ntp servers`_ *[brief]*. El servidor seleccionado estará marcado con un "**\***"::
 
   $# show ntp servers
-  
+
   NTP Server Table Entries
   ------------------------
 
@@ -918,10 +909,10 @@ El tiempo durante el cual la controladora mantiene en caché la resolución DNS 
   $# show run | include "aaa dns-query-interval"
   Building configuration...
 
-  # Se puede consultar el valor de este parametro con "show aaa dns-query-interval"   
+  # Se puede consultar el valor de este parametro con "show aaa dns-query-interval"
   $# show aaa dns-query-internal
-  
-  DNS Query Interval  15 minutes  
+
+  DNS Query Interval  15 minutes
 
 La controladora puede proporcionar a su vez servicio NTP a dispositivos conectados a algunas de sus VLANs. El servicio NTP puede habilitarse o deshabilitarse con la orden *[no]* `ntp standalone`_ *vlan-range <lista de vlans>*::
 
@@ -939,7 +930,7 @@ Los logs que genera la controladora se agrupan en *categorías*, y estos a su ve
 
 Los mensajes sólo se enviarán al servidor si igualan o superan el nivel de severidad. La lista completa de severidades, categorías y subcategorías puede consultarse en la documentación del comando `logging level`_.
 
-- La facility que usará la controladora se puede configurar a nivel global con el comando `logging facility`_ *<local0|local1|...|local7>*. 
+- La facility que usará la controladora se puede configurar a nivel global con el comando `logging facility`_ *<local0|local1|...|local7>*.
 - Las categorías y subcategorías se habilitan a nivel global con el comando `logging level`_ *<nivel> <categoria> [subcat <subcategoria>] [process <proceso>]*
 
 .. code: bash
@@ -985,7 +976,7 @@ La facility y niveles configurados a nivel global se listan con los comandos `sh
   user      debugging      N/A           N/A
   user      informational  radius        aaa
   wireless  warnings       N/A           N/A
-  
+
 Los servidores de logging se configuran con el comando `logging`_ *<servidor de syslog>*, que permite los siguientes parámetros para cada servidor:
 
 ============================ ============================================== =================================================
@@ -993,7 +984,7 @@ Opcion                       Propósito                                      Val
 ============================ ============================================== =================================================
 facility <local0|...|local7> Facility para este servidor particular.        Valor global establecido por `logging facility`_.
 level <nivel>                Nivel mínimo de severidad para este servidor.  Valor global establecido por `logging level`_.
-type <categoria>             Categoría de eventos a enviar a este servidor. Todas las categorías activas. 
+type <categoria>             Categoría de eventos a enviar a este servidor. Todas las categorías activas.
                              Puede repetirse la orden varias veces, para
                              incluir varias categorias distintas.
 format [cef]                 Activar formato de log CEF ArcSight            No habilitado.
@@ -1051,7 +1042,7 @@ Las controladoras soportan SNMP v1, v2c y v3. La **versión** de SNMP **no es co
      - Activar o desactivar el envío de un trap particular.
      - `show snmp trap-list`_
    * - `snmp-server`_ *host ipaddr version [1|2c|3] <direccion IP> [udp-port <puerto UDP>]*
-     - Dirección y puerto receptor traps                       
+     - Dirección y puerto receptor traps
      - N/A
    * - `snmp-server`_ *trap source <dirección IP>*
      - IP origen para el envío de los traps
@@ -1060,7 +1051,7 @@ Las controladoras soportan SNMP v1, v2c y v3. La **versión** de SNMP **no es co
      - Credenciales de usuario (SNMPv3)
      - `show snmp user-table`_
 
-La lista completa de traps disponibles debe obtenerse desde la controladora, ya que depende de la versión particular de software y sus MIBs. El comando para enumerar los traps disponibles es `show snmp trap-list`_. 
+La lista completa de traps disponibles debe obtenerse desde la controladora, ya que depende de la versión particular de software y sus MIBs. El comando para enumerar los traps disponibles es `show snmp trap-list`_.
 
 Los parámetros no tienen valores por defecto, si no aparecen en la configuración entonces la funcionalidad correspondiente no está habilitada. Puede comprobarse la configuración de los parámetros relacionados con SNMP mediante los comandos `show snmp community`_, `show snmp trap-host`_, `show snmp user-table`_::
 
@@ -1076,7 +1067,7 @@ Los parámetros no tienen valores por defecto, si no aparecen en la configuraci�
 
   Location is not configured
 
-  $# show snmp community 
+  $# show snmp community
 
   SNMP COMMUNITIES
   ----------------
@@ -1115,7 +1106,7 @@ Los parámetros no tienen valores por defecto, si no aparecen en la configuraci�
   ---------------
   USER       AUTHPROTOCOL  PRIVACYPROTOCOL  FLAGS
   ----       ------------  ---------------  -----
-  AirWave    SHA           DES              
+  AirWave    SHA           DES
 
 Interfaces
 ==========
@@ -1137,7 +1128,7 @@ Las interfaces físicas de la controladora, a efectos de seguridad, se clasifica
 
   A su vez, una interfaz *trusted* puede tener una o varias VLANs *trusted*, si está en modo 802.1Q. Si no hay una ACL configurada en la interfaz o en la VLAN, todo el tráfico está autorizado.
 
-Como se introduce en el apartado de :ref:`control_acceso_acl`, las reglas de hardening se aplican a las interfaces *untrusted*. En las interfaces *trusted* aplican los roles que se hayan definido para cada tipo de usuario o dispositivo.
+Como se introduce en el apartado de :ref:`control_acceso_acl`, las reglas de hardening se aplican a las interfaces *trusted*. En las interfaces *untrusted* aplican los roles que se hayan definido para cada tipo de usuario o dispositivo.
 
 Para enumerar las interfaces activas y sus propiedades, se usan los comandos `show port`_ y `show interface`_ *gigabit <slot>/<modulo>/<puerto>*::
 
@@ -1158,7 +1149,7 @@ Para enumerar las interfaces activas y sus propiedades, se usan los comandos `sh
   PC7        PC        Enabled     Down       N/A  Yes      Disabled      Access    N/A       N/A     No
 
   # Para averiguar los puertos trusted:
-  $# show port trusted 
+  $# show port trusted
 
   GE <slot>/<modulo>/<puerto1>
   GE <slot>/<modulo>/<puerto2>
@@ -1180,14 +1171,14 @@ Para enumerar las interfaces activas y sus propiedades, se usan los comandos `sh
 
   Name:  GE0/0/1
   Switchport:  Enabled
-  Administrative mode:  static access 
-  Operational mode:  static access 
+  Administrative mode:  static access
+  Operational mode:  static access
   Administrative Trunking Encapsulation:  dot1q
   Operational Trunking Encapsulation:  dot1q
   Access Mode VLAN: 30 (VLAN0030)
   Trunking Native Mode VLAN: 1 (Default)
-  Trunking Vlans Enabled: NONE 
-  Trunking Vlans Active: NONE 
+  Trunking Vlans Enabled: NONE
+  Trunking Vlans Active: NONE
 
   # Ejemplo puerto en "Operational mode: trunk" (802.1Q)
   # Varias VLANs a proteger: Todas las de "Trunking VLANs Active:"
@@ -1218,7 +1209,7 @@ Las interfaces que no estén en uso pueden desactivarse con un *shutdown* están
     trusted
     trusted vlan 1-4094
   !
-  
+
   # Comprobacion mediante show port status: admin state = Disabled
   $# show port status
 
@@ -1244,7 +1235,7 @@ A cada interfaz puede asignársele un nombre descriptivo con el parámetro *desc
     trusted
     trusted vlan 1-4094
   !
-  
+
   # Comprobacion mediante show interface
   $# show interface gigabit <slot>/<mod>/<puerto>
   # ... lineas omitidas
